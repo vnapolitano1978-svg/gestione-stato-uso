@@ -1,1 +1,166 @@
-<!DOCTYPE html><html><body><h1>Gestione Stato d'Uso</h1><p>Frontend minimale. Effettua chiamate API a /api/... </p></body></html>
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <title>Gestione Stato d'Uso</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; background: linear-gradient(to bottom, #1a237e, #534bae); color: #fff; }
+    h1 { color: #ffeb3b; }
+    .hidden { display: none; }
+    table { border-collapse: collapse; width: 100%; background: #fff; color: #000; }
+    th, td { border: 1px solid #ccc; padding: 6px; text-align: center; }
+    th { background: #f0f0f0; }
+    input, button { margin: 5px; padding: 6px; }
+    .form-box { margin: 10px 0; padding: 10px; background: #eeeeee; color: #000; }
+  </style>
+</head>
+<body>
+  <h1>Gestione Stato d'Uso</h1>
+
+  <!-- Login -->
+  <div id="loginBox">
+    <h2>Login</h2>
+    <input id="username" placeholder="Username">
+    <input id="password" type="password" placeholder="Password">
+    <button onclick="login()">Accedi</button>
+    <p id="loginError" style="color:red;"></p>
+  </div>
+
+  <!-- App -->
+  <div id="appBox" class="hidden">
+    <h2>Benvenuto, <span id="userLabel"></span></h2>
+    <button onclick="logout()">Logout</button>
+
+    <div class="form-box">
+      <h3>Nuovo/Modifica Record</h3>
+      <input id="rid" type="hidden">
+      <input id="datetime" placeholder="Data/Ora (dd-mm-yyyy HH:MM)">
+      <input id="marca" placeholder="Marca">
+      <input id="modello" placeholder="Modello">
+      <input id="targa" placeholder="Targa">
+      <input id="data_immatricolazione" placeholder="Data immatricolazione (dd-mm-yyyy)">
+      <input id="km_attuali" placeholder="KM attuali">
+      <input id="spese_ripristino" placeholder="Spese ripristino">
+      <input id="nome_venditore" placeholder="Nome venditore">
+      <br>
+      <button onclick="saveRecord()">Salva</button>
+      <button onclick="clearForm()">Nuovo</button>
+    </div>
+
+    <h3>Elenco veicoli</h3>
+    <table id="recordsTable">
+      <thead>
+        <tr>
+          <th>ID</th><th>Data/Ora</th><th>Marca</th><th>Modello</th><th>Targa</th>
+          <th>Data immatricolazione</th><th>KM</th><th>Spese</th><th>Venditore</th><th>Azione</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+
+    <h3>Strumenti</h3>
+    <button onclick="loadRecords()">Aggiorna</button>
+    <button onclick="exportCSV()">Export CSV</button>
+    <button onclick="exportPDF()">Export PDF</button>
+  </div>
+
+  <script>
+    const API = ""; // se frontend e backend sono sullo stesso dominio, lascia vuoto
+    let token = null;
+
+    async function login() {
+      const u = document.getElementById('username').value;
+      const p = document.getElementById('password').value;
+      const res = await fetch(API+'/api/login', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({username:u, password:p})
+      });
+      const data = await res.json();
+      if (data.ok) {
+        token = data.token;
+        document.getElementById('userLabel').innerText = u;
+        document.getElementById('loginBox').classList.add('hidden');
+        document.getElementById('appBox').classList.remove('hidden');
+        loadRecords();
+      } else {
+        document.getElementById('loginError').innerText = "Credenziali non valide";
+      }
+    }
+
+    function logout() {
+      token = null;
+      document.getElementById('loginBox').classList.remove('hidden');
+      document.getElementById('appBox').classList.add('hidden');
+    }
+
+    function clearForm() {
+      document.querySelectorAll('#rid, #datetime, #marca, #modello, #targa, #data_immatricolazione, #km_attuali, #spese_ripristino, #nome_venditore')
+        .forEach(el => el.value = "");
+    }
+
+    async function loadRecords() {
+      const res = await fetch(API+'/api/records');
+      const data = await res.json();
+      const tbody = document.querySelector('#recordsTable tbody');
+      tbody.innerHTML = "";
+      data.forEach(r => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${r.id}</td><td>${r.datetime}</td><td>${r.marca}</td><td>${r.modello}</td><td>${r.targa}</td>
+          <td>${r.data_immatricolazione}</td><td>${r.km_attuali}</td><td>${r.spese_ripristino}</td><td>${r.nome_venditore}</td>
+          <td>
+            <button onclick='editRecord(${JSON.stringify(r)})'>✏️</button>
+            <button onclick='deleteRecord(${r.id})'>🗑️</button>
+          </td>`;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function editRecord(r) {
+      document.getElementById('rid').value = r.id;
+      document.getElementById('datetime').value = r.datetime;
+      document.getElementById('marca').value = r.marca;
+      document.getElementById('modello').value = r.modello;
+      document.getElementById('targa').value = r.targa;
+      document.getElementById('data_immatricolazione').value = r.data_immatricolazione;
+      document.getElementById('km_attuali').value = r.km_attuali;
+      document.getElementById('spese_ripristino').value = r.spese_ripristino;
+      document.getElementById('nome_venditore').value = r.nome_venditore;
+    }
+
+    async function saveRecord() {
+      const rid = document.getElementById('rid').value;
+      const rec = {
+        datetime: document.getElementById('datetime').value,
+        marca: document.getElementById('marca').value,
+        modello: document.getElementById('modello').value,
+        targa: document.getElementById('targa').value,
+        data_immatricolazione: document.getElementById('data_immatricolazione').value,
+        km_attuali: document.getElementById('km_attuali').value,
+        spese_ripristino: document.getElementById('spese_ripristino').value,
+        nome_venditore: document.getElementById('nome_venditore').value
+      };
+      const url = rid ? API+`/api/records/${rid}` : API+'/api/records';
+      const method = rid ? 'PUT' : 'POST';
+      const res = await fetch(url, {
+        method, headers:{'Content-Type':'application/json','X-Auth-User':token},
+        body: JSON.stringify(rec)
+      });
+      if (res.ok) { clearForm(); loadRecords(); }
+    }
+
+    async function deleteRecord(id) {
+      if (!confirm("Sei sicuro di voler eliminare questo record?")) return;
+      const res = await fetch(API+`/api/records/${id}`, { method:'DELETE', headers:{'X-Auth-User':token} });
+      if (res.ok) loadRecords();
+    }
+
+    function exportCSV() {
+      window.open(API+'/api/export/csv','_blank');
+    }
+    function exportPDF() {
+      window.open(API+'/api/export/pdf','_blank');
+    }
+  </script>
+</body>
+</html>
